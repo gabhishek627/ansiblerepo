@@ -1,0 +1,7 @@
+---
+- hosts: all
+  tasks:
+    - name: content update
+      copy:
+        dest: /tmp/resolv100.conf
+        content: "nameserver 192.0.0.0\n"
