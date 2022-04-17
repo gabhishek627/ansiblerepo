@@ -36,7 +36,7 @@
       - name: Start snmpd
         service: name=snmpd state=restarted enabled=yes
         ignore_errors: yes
-        #when: ansible_distribution == 'CentOS'
+    when: ansible_distribution == 'CentOS'
 
   - name: Begin Configuring SNMP for Ubuntu
     block:
@@ -70,5 +70,5 @@
         state: enabled
 #        when: register_firewalld.stat.exists
 
-#   - name: Results
-#    debug: msg="Snmpd was successfullly configured on localhost
+  - name: Results
+    debug: msg="Snmpd was successfullly configured on localhost
