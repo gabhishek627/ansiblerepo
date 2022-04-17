@@ -68,7 +68,7 @@
         permanent: yes
         immediate: yes
         state: enabled
-    when: register_firewalld.stat.exists
+#        when: register_firewalld.stat.exists
 
   - name: Results
-    debug: msg="Snmpd was successfullly configured on {{ myhosts }}"
+    debug: msg="Snmpd was successfullly configured on localhost
