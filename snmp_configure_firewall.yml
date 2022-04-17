@@ -36,7 +36,7 @@
       - name: Start snmpd
         service: name=snmpd state=restarted enabled=yes
         ignore_errors: yes
-    when: ansible_distribution == 'CentOS'
+        #when: ansible_distribution == 'CentOS'
 
   - name: Begin Configuring SNMP for Ubuntu
     block:
