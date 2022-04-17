@@ -1,0 +1,71 @@
+- hosts: "{{ myhosts }}"
+  gather_facts: yes
+  vars:
+    snmpcreds: "{{ lookup('hashi_vault', 'secret=ansible-kv/snmp validate_certs=False auth_method=' + VAULT_AUTH_METHOD +' role_id=' + VAULT_ROLE_ID + ' secret_id=' + VAULT_SECRET_ID + ' url='+ VAULT_ADDR) }}"
+  tasks:
+  - name: Begin Configuring SNMP for FreeBSD
+    block:
+      - name:  Begin Configuring SNMP for FreeBSD - Stop snmpd if running
+        service: name=snmpd state=stopped enabled=no
+        ignore_errors: yes
+      - name: Configure snmpd
+        shell: /usr/local/bin/net-snmp-config --create-snmpv3-user -ro -x AES -a SHA -A "{{ snmpcreds.aes }}" -X "{{ snmpcreds.sha }}" vrtro
+        no_log: true
+        ignore_errors: yes
+      - name: Set File Permissions
+        file: path=/var/net-snmp/snmpd.conf mode=600
+      - name: Start snmpd
+        service: name=snmpd state=restarted enabled=yes
+        ignore_errors: yes
+    when: ansible_distribution == 'FreeBSD'
+
+  - name: Begin Configuring SNMP for CentOS
+    block:
+      - name: Configuring SNMP on CentOS
+        service: name=snmpd state=stopped enabled=no
+        ignore_errors: yes
+      - name: Configure snmpd
+        shell: /usr/bin/net-snmp-create-v3-user -ro -x AES -a SHA -A "{{ snmpcreds.aes }}" -X "{{ snmpcreds.sha }}" vrtro
+        no_log: true
+        ignore_errors: yes
+      - name: Set File Permissions
+        file: path=/var/lib/net-snmp/snmpd.conf mode=600
+      - name: Start snmpd
+        service: name=snmpd state=restarted enabled=yes
+        ignore_errors: yes
+    when: ansible_distribution == 'CentOS'
+
+  - name: Begin Configuring SNMP for Ubuntu
+    block:
+      - name: Configuring SNMP on Ubuntu (Starts Here) - Stop snmpd if running
+        service: name=snmpd state=stopped enabled=no
+        ignore_errors: yes
+      - name: Configure snmpd
+        shell: /usr/bin/net-snmp-create-v3-user -ro -x AES -a SHA -A "{{ snmpcreds.aes }}" -X "{{ snmpcreds.sha }}" vrtro
+        no_log: true
+        ignore_errors: yes
+      - name: Set File Permissions
+        file: path=/var/lib/snmp/snmpd.conf mode=600
+      - name: Start snmpd
+        service: name=snmpd state=restarted enabled=yes
+        ignore_errors: yes
+    when: ansible_distribution == 'Ubuntu'
+
+  - name: Is firewalld enabled?
+    stat:
+      path: /etc/systemd/system/multi-user.target.wants/firewalld.service
+    register: register_firewalld
+    when: ansible_distribution == 'CentOS' or ansible_distribution == 'Ubuntu'
+
+  - name: If firewalld is enabled allow snmp
+    block:
+    - name: allow incoming snmp connections
+      ansible.posix.firewalld:
+        port: 161/udp
+        permanent: yes
+        immediate: yes
+        state: enabled
+    when: register_firewalld.stat.exists
+
+  - name: Results
+    debug: msg="Snmpd was successfullly configured on {{ myhosts }}"
