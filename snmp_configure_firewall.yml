@@ -1,4 +1,5 @@
-- hosts: "{{ myhosts }}"
+---
+- hosts: localhost
   gather_facts: yes
   vars:
  ## snmpcreds: "{{ lookup('hashi_vault', 'secret=ansible-kv/snmp validate_certs=False auth_method=' + VAULT_AUTH_METHOD +' role_id=' + VAULT_ROLE_ID + ' secret_id=' + VAULT_SECRET_ID + ' url='+ VAULT_ADDR) }}"
