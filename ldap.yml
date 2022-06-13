@@ -1,0 +1,7 @@
+---
+- name: Return all entries within the 'groups' organizational unit.
+  tasks:
+    - name: module check
+      community.general.ldap_search:
+        dn: "OU=test,OU=Groups,DC=abb,DC=com"
+      register: ldap_groups
