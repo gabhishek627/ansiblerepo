@@ -1,0 +1,75 @@
+
+
+---
+- hosts: localhost
+  vars:
+     any_file: "{{ '' if log_path_and_name=='<absolute path and file name>' else log_path_and_name }}"
+     date: "{{ lookup('pipe', 'date +%d%b%Y-%H%M') }}"
+  tasks:
+
+#    - debug: msg=" playbook directory-------------->{{ playbook_dir }} and date---->{{ date }}"
+    - debug: msg=" any_file-------------->{{ any_file }}"
+    - debug: msg=" log_file-------------->{{ log_file }}"
+    #- debug: msg=" only item--------------> {{ item }}"
+    - debug: msg=" log_file.item-------------->{{ log_file[0] }} "
+
+    - name: create directory in tmp in remote
+      ansible.builtin.file:
+        path: "/tmp/logfile-{{ansible_host }}-{{ date }}"
+        state: directory
+        owner: "{{kafka_broker_user}}"
+        group: "{{kafka_broker_group}}"
+        mode: 745   
+      register: tmp_dir
+
+    - name: message log files to tmp
+      ansible.builtin.debug:
+        msg: "/users/confluent/log/{{ item}}"
+      loop: "{{ log_file if log_file is iterable and log_file!=''  else [] }}"
+      when: item!='All'
+
+
+    - name: copy log files to tmp
+      ansible.builtin.shell: "cp /users/confluent/logs/{{ item}}  {{ tmp_dir.path }}/{{ item}}"
+      loop: "{{ log_file if log_file is iterable and log_file!=''  else [] }}"
+      when: item!='All'      
+
+
+    - name: copy All log files to tmp
+      ansible.builtin.shell: "cp /users/confluent/logs/*.log  {{ tmp_dir.path }}/"
+      loop: "{{ log_file if log_file is iterable and log_file!=''  else [] }}"
+      when: item=='All'
+
+
+    - name: message any_file to tmp
+      ansible.builtin.debug:
+        msg: "{{ any_file }}"
+      when: any_file is defined and any_file !=''
+
+
+    - name: extract the name of any_file from path
+      ansible.builtin.shell: 'rev <<< {{ any_file }} | cut -d "/" -f1 |rev'
+      register: file_name
+      when: any_file is defined and any_file !=''
+
+    - name: copy named any_file to tmp
+      ansible.builtin.shell: "cp {{ any_file }}  {{ tmp_dir.path }}/"
+      when: any_file is defined and any_file !=''
+
+    - name: Compress directory in remote tmp with files
+      community.general.archive:
+        path: "{{ tmp_dir.path }}"
+        dest: "/tmp/{{inventory_hostname}}-{{ date }}.zip"
+        format: zip
+
+    - name: Fetch the compressed directory from remote server to control node in /tmp/remote-files-{{ date }} 
+      fetch: 
+        src: "/tmp/{{inventory_hostname}}-{{ date }}.zip"
+        dest: "/tmp/remote-files-{{ date }}/" 
+        flat: yes
+
+
+ 
+
+
+...
