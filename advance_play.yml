@@ -1,0 +1,243 @@
+project_update.yml
+---
+# The following variables will be set by the runner of this playbook:
+# projects_root: Global location for caching project checkouts and roles and collections
+#     should not have trailing slash on end
+# local_path: Path within projects_root to use for this project
+# project_path: A simple join of projects_root/local_path folders
+# scm_url: https://server/repo
+# insights_url: Insights service URL (from configuration)
+# scm_branch: branch/tag/revision (HEAD if unset)
+# scm_clean: true/false
+# scm_username: username (only for svn/insights)
+# scm_password: password (only for svn/insights)
+# scm_accept_hostkey: true/false (only for git, set automatically)
+# scm_refspec: a refspec to fetch in addition to obtaining version
+# scm_track_submodules: true/false
+# roles_enabled: Value of the global setting to enable roles downloading
+# collections_enabled: Value of the global setting to enable collections downloading
+# galaxy_task_env: environment variables to use specifically for ansible-galaxy commands
+# awx_version: Current running version of the awx or tower as a string
+# awx_license_type: "open" for AWX; else presume Tower
+# gpg_pubkey: the GPG public key to use for validation, when enabled
+
+- hosts: localhost
+  gather_facts: false
+  connection: local
+  name: Update source tree if necessary
+  tasks:
+
+    - name: delete project directory before update
+      command: "find -delete"  # volume mounted, cannot delete folder itself
+      args:
+        chdir: "{{ project_path }}"
+      tags:
+        - delete
+
+    - block:
+        - name: update project using git
+          git:
+            dest: "{{project_path|quote}}"
+            repo: "{{scm_url}}"
+            version: "{{scm_branch|quote}}"
+            refspec: "{{scm_refspec|default(omit)}}"
+            force: "{{scm_clean}}"
+            track_submodules: "{{scm_track_submodules|default(omit)}}"
+            accept_hostkey: "{{scm_accept_hostkey|default(omit)}}"
+          register: git_result
+
+        - name: Set the git repository version
+          set_fact:
+            scm_version: "{{ git_result['after'] }}"
+          when: "'after' in git_result"
+      tags:
+        - update_git
+
+    - block:
+        - name: update project using svn
+          subversion:
+            dest: "{{project_path|quote}}"
+            repo: "{{scm_url|quote}}"
+            revision: "{{scm_branch|quote}}"
+            force: "{{scm_clean}}"
+            username: "{{scm_username|default(omit)}}"
+            password: "{{scm_password|default(omit)}}"
+            # must be in_place because folder pre-existing, because it is mounted
+            in_place: true
+          environment:
+            LC_ALL: 'en_US.UTF-8'
+          register: svn_result
+
+        - name: Set the svn repository version
+          set_fact:
+            scm_version: "{{ svn_result['after'] }}"
+          when: "'after' in svn_result"
+
+        - name: parse subversion version string properly
+          set_fact:
+            scm_version: "{{scm_version|regex_replace('^.*Revision: ([0-9]+).*$', '\\1')}}"
+      tags:
+        - update_svn
+
+    - block:
+        - name: Ensure the project directory is present
+          file:
+            dest: "{{project_path|quote}}"
+            state: directory
+
+        - name: Fetch Insights Playbook(s)
+          insights:
+            insights_url: "{{insights_url}}"
+            username: "{{scm_username}}"
+            password: "{{scm_password}}"
+            project_path: "{{project_path}}"
+            awx_license_type: "{{awx_license_type}}"
+            awx_version: "{{awx_version}}"
+          register: results
+
+        - name: Save Insights Version
+          set_fact:
+            scm_version: "{{results.version}}"
+          when: results is defined
+      tags:
+        - update_insights
+
+    - block:
+        - name: Ensure the project archive directory is present
+          file:
+            dest: "{{ project_path|quote }}/.archive"
+            state: directory
+
+        - name: Get archive from url
+          get_url:
+            url: "{{ scm_url|quote }}"
+            dest: "{{ project_path|quote }}/.archive/"
+            url_username: "{{ scm_username|default(omit) }}"
+            url_password: "{{ scm_password|default(omit) }}"
+            force_basic_auth: true
+          register: get_archive
+
+        - name: Unpack archive
+          project_archive:
+            src: "{{ get_archive.dest }}"
+            project_path: "{{ project_path|quote }}"
+            force: "{{ scm_clean }}"
+          when: get_archive.changed or scm_clean
+          register: unarchived
+
+        - name: Find previous archives
+          find:
+            paths: "{{ project_path|quote }}/.archive/"
+            excludes:
+              - "{{ get_archive.dest|basename }}"
+          when: unarchived.changed
+          register: previous_archive
+
+        - name: Remove previous archives
+          file:
+            path: "{{ item.path }}"
+            state: absent
+          loop: "{{ previous_archive.files }}"
+          when: previous_archive.files|default([])
+
+        - name: Set scm_version to archive sha1 checksum
+          set_fact:
+            scm_version: "{{ get_archive.checksum_src }}"
+      tags:
+        - update_archive
+
+    - name: Repository Version
+      debug:
+        msg: "Repository Version {{ scm_version }}"
+      tags:
+        - update_git
+        - update_svn
+        - update_insights
+        - update_archive
+
+- hosts: localhost
+  gather_facts: false
+  connection: local
+  name: Perform project signature/checksum verification
+  tasks:
+    - name: Verify project content using GPG signature
+      verify_project:
+        project_path: "{{ project_path | quote }}"
+        validation_type: gpg
+        gpg_pubkey: "{{ gpg_pubkey }}"
+      tags:
+        - validation_gpg_public_key
+
+    - name: Verify project content against checksum manifest
+      verify_project:
+        project_path: "{{ project_path | quote }}"
+        validation_type: checksum_manifest
+      tags:
+        - validation_checksum_manifest
+
+- hosts: localhost
+  gather_facts: false
+  connection: local
+  name: Install content with ansible-galaxy command if necessary
+  vars:
+    galaxy_task_env:  # configure in settings
+    additional_collections_env:
+      # These environment variables are used for installing collections, in addition to galaxy_task_env
+      # setting the collections paths silences warnings
+      ANSIBLE_COLLECTIONS_PATHS: "{{projects_root}}/.__awx_cache/{{local_path}}/stage/requirements_collections"
+      # Put the local tmp directory in same volume as collection destination
+      # otherwise, files cannot be moved accross volumes and will cause error
+      ANSIBLE_LOCAL_TEMP: "{{projects_root}}/.__awx_cache/{{local_path}}/stage/tmp"
+  tasks:
+
+    - name: Check content sync settings
+      block:
+        - debug:
+            msg: >
+              Collection and role syncing disabled. Check the AWX_ROLES_ENABLED and
+              AWX_COLLECTIONS_ENABLED settings and Galaxy credentials on the project's organization.
+
+        - meta: end_play
+
+      when: not roles_enabled|bool and not collections_enabled|bool
+      tags:
+        - install_roles
+        - install_collections
+
+    - name: fetch galaxy roles from requirements.(yml/yaml)
+      command: >
+        ansible-galaxy role install -r {{ item }}
+        --roles-path {{projects_root}}/.__awx_cache/{{local_path}}/stage/requirements_roles
+        {{ ' -' + 'v' * ansible_verbosity if ansible_verbosity else '' }}
+      args:
+        chdir: "{{project_path|quote}}"
+      register: galaxy_result
+      with_fileglob:
+        - "{{project_path|quote}}/roles/requirements.yaml"
+        - "{{project_path|quote}}/roles/requirements.yml"
+      changed_when: "'was installed successfully' in galaxy_result.stdout"
+      environment: "{{ galaxy_task_env }}"
+      when: roles_enabled|bool
+      tags:
+        - install_roles
+
+    - name: fetch galaxy collections from collections/requirements.(yml/yaml)
+      command: >
+        ansible-galaxy collection install -r {{ item }}
+        --collections-path {{projects_root}}/.__awx_cache/{{local_path}}/stage/requirements_collections
+        {{ ' -' + 'v' * ansible_verbosity if ansible_verbosity else '' }}
+      args:
+        chdir: "{{project_path|quote}}"
+      register: galaxy_collection_result
+      with_fileglob:
+        - "{{project_path|quote}}/collections/requirements.yaml"
+        - "{{project_path|quote}}/collections/requirements.yml"
+        - "{{project_path|quote}}/requirements.yaml"
+        - "{{project_path|quote}}/requirements.yml"
+      changed_when: "'Installing ' in galaxy_collection_result.stdout"
+      environment: "{{ additional_collections_env | combine(galaxy_task_env) }}"
+      when:
+        - "ansible_version.full is version_compare('2.9', '>=')"
+        - collections_enabled|bool
+      tags:
+        - install_collections
