@@ -9,8 +9,8 @@
 
   rules:
     - name: Say Hello
-      condition: event.payload.message == 'x-vagt'
+      condition: event.payload.message == 'Hello There!'
       action:
         run_job_template:
-          name: 'prod | vagt | sms off'
-          organization: KU-IT
+          name: 'prod'
+          organization: test_org
