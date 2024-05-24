@@ -13,4 +13,3 @@
       action:
         run_job_template:
           name: 'prod'
-          organization: test_org
