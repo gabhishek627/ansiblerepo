@@ -1,0 +1,9 @@
+---
+- name: Disable plugin discovery and auto-download by setting plugin_paths
+  cloud.terraform.terraform:
+    project_path: 'project/'
+    state: "{{ state }}"
+    force_init: true
+    plugin_paths:
+      - /path/to/plugins_dir_1
+      - /path/to/plugins_dir_2
