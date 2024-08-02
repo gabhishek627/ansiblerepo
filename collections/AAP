@@ -1,0 +1,11 @@
+AAP knowledge:
+
+$ sudo skopeo login --tls-verify=false <ah_fqdn>
+
+$ sudo skopeo copy --debug --retry-times 5 --dest-creds 'admin:<password>' --dest-tls-verify=false docker-archive:///tmp/ee-supported-rhel8.tar docker://ah_fqdn/ee-supported-rhel8:latest
+
+
+In my example, ee-supported-rhel8.tar is one of the image that I copied from bundled installer directory <Bundled_installer>/images/ee-supported-rhel8.tgz to /tmp, followed by `gunzip ee-supported-rhel8.tgz`.
+
+======================================================================
+
