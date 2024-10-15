@@ -1,0 +1,20 @@
+---
+- name: Create Namespace
+  hosts: all
+  collections:
+    - redhat.openshift
+  tasks:
+    - name: Create Namespace
+      redhat.openshift.k8s:
+        state: present
+        definition:
+          kind: Project
+          apiVersion: project.openshift.io/v1
+          metadata:
+            name: "{{ project_name }}"
+            labels:
+              SERVICEOWNER: "{{ service_owner }}"
+              SERVICEOWNERMAIL: "{{ service_owner_mail }}"
+          spec:
+            finalizers:
+              - kubernetes
