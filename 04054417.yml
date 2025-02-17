@@ -1,6 +1,2 @@
----
-- name: Kafka Installation
-  hosts: localhost
-  tasks:
-    - name: Include all.yml
+- name: Include all.yml
       import_playbook: /runner/requirements_collections/ansible_collections/confluent/platform/playbooks/all.yml
