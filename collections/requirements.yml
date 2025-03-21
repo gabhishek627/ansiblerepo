@@ -1,6 +1,8 @@
 ---
 collections:
-  - name: confluent.platform
-    version: 7.7.2
-  - name: community.crypto
+  - name: cloud.vmware_ops
+  - name: azure.azcollection
+  - name: vmware.vmware_rest
+  - name: community.vmware
+    verion: latest
 
