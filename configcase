@@ -1,0 +1,8 @@
+---
+- name: patch the server
+  hosts: all
+  become: true
+  tasks:
+     - name: testing host
+       debug: 
+         var: config
