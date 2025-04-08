@@ -9,4 +9,4 @@
          
      - name: testng guest
        debug:
-         var: guest
+         msg: "The value of my_variable is"
