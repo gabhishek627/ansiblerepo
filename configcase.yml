@@ -9,4 +9,4 @@
          
      - name: testng guest
        debug:
-         msg: "The value of my_variable is"
+         msg: "The value of my_variable is {{ config.name }}"
