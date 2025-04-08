@@ -6,3 +6,7 @@
      - name: testing host
        debug: 
          var: config
+         
+     - name: testng guest
+       debug:
+         var: guest
