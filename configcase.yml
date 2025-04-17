@@ -5,6 +5,4 @@
   tasks:
      - name: testing host
        debug: 
-         var: config
-
-        
+         var: config*
