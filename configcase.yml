@@ -4,7 +4,5 @@
   become: true
   tasks:
      - name: testing host
-       vars: 
-         example_vars: config
        debug: 
-         var: example_vars
+         var: config
