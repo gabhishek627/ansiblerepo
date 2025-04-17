@@ -6,3 +6,9 @@
      - name: testing host
        debug: 
          var: config
+
+     - name: testing guest
+       debug: 
+         var: guest
+
+        
