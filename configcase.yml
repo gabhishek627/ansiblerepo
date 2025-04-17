@@ -6,7 +6,3 @@
      - name: testing host
        debug: 
          var: config
-         
-     - name: testng guest
-       debug:
-         msg: "The value of my_variable is {{ config.name }}"
