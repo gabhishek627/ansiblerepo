@@ -1,0 +1,8 @@
+---
+- name: Using Azure collection
+  hosts: localhost
+  tasks:
+    - azure.azcollection.azure_rm_storageaccount:
+        resource_group: myResourceGroup
+        name: mystorageaccount
+        account_type: Standard_LRS
