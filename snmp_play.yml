@@ -15,6 +15,3 @@
         ansible_snmp_usm_priv_protocol: "aes"
         ansible_snmp_usm_priv_key: "{{ pass }}"
         ansible_python_interpreter: /usr/local/bin/python3
-    
-      register: snmp_out
-      delegate_to: localhost
