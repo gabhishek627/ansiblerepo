@@ -1,7 +1,7 @@
 ---
 - name: Get sysName.0 via SNMPv3
   hosts: all
-  task: 
+  tasks: 
     - name: ansible snmp.get 
       ansible.snmp.get:
       oids:
