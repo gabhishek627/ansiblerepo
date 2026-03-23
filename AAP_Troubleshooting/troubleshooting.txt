@@ -1,0 +1,11 @@
+1.
+
+Get the output from running the following command from your controller cli.
+This will extracts all events and logs from affected inventory sync job and saves them to a file for debugging and should be useful to detect slow tasks during inventory sync:
+~~~
+# echo "SELECT id, to_char(created,'YYYY-MM-DD HH:MM:SS') created, to_char(modified,'YYYY-MM-DD HH:MM:SS') as modified, extract(epoch from (modified - created)) as duration_in_sec, event_data, counter, stdout, inventory_update_id FROM main_inventoryupdateevent where inventory_update_id =<ID>;" |awx-manage dbshell > <ID>_inventory_update_events.txt
+~~~
+Replace <ID> with the actual affected inventory update ID.
+
+
+2.
