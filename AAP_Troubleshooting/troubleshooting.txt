@@ -8,4 +8,17 @@ This will extracts all events and logs from affected inventory sync job and save
 Replace <ID> with the actual affected inventory update ID.
 
 
-2.
+2. In containerized AAP, Cannot Login to Ansible Automation Platform 2.5 with the LB:
+
+/pi/gateway/v1/status: 
+Forbidden (403)
+CSRF verification failed. Request aborted.
+
+Add the following setting in the gateway host located in the home directory $HOME/aap/gateway/etc/settings.py:
+
+CSRF_TRUSTED_ORIGINS = ['https://my.domain', 'https://*.other.domain']
+
+Then, 
+$ export XDG_RUNTIME_DIR='/run/user/$UID'
+$ systemctl --user restart automation-gateway
+$ systemctl --user restart automation-gateway-proxy 
