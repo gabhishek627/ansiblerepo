@@ -22,3 +22,22 @@ Then,
 $ export XDG_RUNTIME_DIR='/run/user/$UID'
 $ systemctl --user restart automation-gateway
 $ systemctl --user restart automation-gateway-proxy 
+
+
+
+
+3. Pusing image to Hub via skopeo:
+ sudo skopeo login --tls-verify=false https://aaphubdrx.principal.com  ==> LB
+ 
+ cp -pr image /tmp
+ 
+ cd /tmp
+ 
+ gunzip the tgz file
+ 
+ then skopeo copy:
+  
+  sudo skopeo copy --debug --retry-times 5 --dest-creds 'admin:redhat1234' --dest-tls-verify=false docker-archive:///tmp/ee-minimal-rhel9.tar docker://<gateway_fqdn>/ee-minimal-rhel9:latest
+
+
+
