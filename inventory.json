@@ -1,0 +1,24 @@
+{
+    "all": {
+        "hosts": [
+            "severa",
+            "severb",
+            "severc"
+        ],
+        "children": [
+            "aix",
+            "ansible",
+            "ansible_test",
+            "desktop_ire",
+            "ghx",
+            "join_bhs_lab",
+            "linux",
+            "splunk",
+            "splunk_syslog",
+            "splunk_syslog_lab",
+            "unix_team_aix",
+            "vios",
+            "vios_sdc"
+        ]
+    }
+}
