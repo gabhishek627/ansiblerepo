@@ -1,0 +1,100 @@
+BACKUP
+    1. Log in to Openshift  Platform.
+    2. Navidate to Storage  PersistentVolumeClaims  Create PersistentVolumeClaims 
+    3. Create PVC for Platform,Controller,HUB & EDA with the following names:
+
+    4. Once the PVC are created ,status will be Pending as they are are not been used by any pods till now.
+    5. Navigate to Operators   Installed Operators  AnsibleAutomationPlatform  All Instances  Create New.
+    6. Select Ansible Automation Platform Backup from the list.
+    7. Paste the below code in yaml view and click on Create
+
+         kind: AnsibleAutomationPlatformBackup
+         apiVersion: aap.ansible.com/v1alpha1
+         metadata:
+           namespace: aapqainstance
+           name: aapqabackup-13-06-2026
+         spec:
+           deployment_name: aap-qa
+           backup_storage_class: managed-csi
+           backup_storage_requirements: 10Gi
+           backup_pvc: aap-backup-13-06-2026-db-pvc
+           controller:
+             backup_storage_requirements: 10Gi
+             backup_storage_class: managed-csi
+             backup_pvc: aap-backup-13-06-2026-controller-pvc
+             no_log: true
+             set_self_labels: true
+           hub:
+             backup_storage_requirements: 10Gi
+             backup_storage_class: managed-csi
+             backup_pvc: aap-backup-13-06-2026-hub-pvc
+             no_log: true
+             set_self_labels: true
+           eda:
+             backup_storage_requirements: 10Gi
+             backup_storage_class: managed-csi
+             backup_pvc: aap-backup-13-06-2026-eda-pvc
+             no_log: true
+             set_self_labels: true
+
+    8. Once the Backup Custom Resource (CR) is created, OpenShift automatically spins up a set of temporary, per‑component pods responsible for performing the database migrations.
+These migration pods run only for the duration of the operation. After they complete the data migration and persist the results to the PVC, the pods terminate automatically, leaving only the PVCs with the finalized data.
+    9. Run this command to monitor the pods lifecycle.
+oc get pods -n aapqainstance | grep backup
+    10. The All Instances page displays the main backup and the backups for each component with the name you specified when creating your backup resource. The status for the following instances must be either Running or Successful:
+
+Go to All instances, search the backup with ”13-06-2026”
+    11. In Persistance Volume Claim you will be able to see the PVC status Bound for each enabled component backup . 
+Note: The Backup CR only backs up the Hub database. The binary artifacts (collections/images) in the blob storage must be managed via Azure-level snapshots.
+
+PVC SNAPSHOTS
+    1. Azure-level Snapshots for Binary Artifacts (Collections/Images in Blob Storage)
+    2. Cloud Team to take the snapshots of the 4 PVCs (Platform, Controller, HUB & EDA) created during the backup activity.
+
+PHASE-2
+Clearing the Naming Conflict
+According to the Official Red Hat AAP 2.5/2.6 Documentation (Section 4.1):
+"The name specified for the new [AAP] custom resource must not match an existing deployment or the recovery process will fail. Persistent volume claims (PVCs) and Secrets remain after a deployment is deleted. If you want to reuse the same name you must delete previous PVCs and Secrets before creating a new custom resource."
+
+Our Action Steps based on this documentation:
+
+Delete the existing application: oc delete ansibleautomationplatform aap-qa
+Delete the associated application PVCs (Postgres, Hub, Controller) so they do not conflict.
+
+
+PHASE 3
+Restore of AAP
+
+    1. Log in to Red Hat OpenShift Container Platform.
+    2. Navigate to Operators   Installed Operators.
+    3. Select your Ansible Automation Platform Operator deployment.
+    4. Go to your All Instances tab, and click Create New.
+    5. Select Ansible Automation Platform Restore from the list
+    6. For Name enter the name for the recovery deployment.
+         
+apiVersion: aap.ansible.com/v1alpha1
+         kind: AnsibleAutomationPlatformRestore
+         metadata:
+           name: aapqa-restore-13-06-2026
+           namespace: aapqainstance
+         spec:
+           no_log: true
+           set_self_labels: true
+           backup_source: CR
+           deployment_name: aap-qa
+           backup_name: aapqabackup-13-06-2026
+         
+    7. Verification: Your backup restores under the AnsibleAutomationPlatformRestores tab
+To verify that your recovery was successful you can: Go to Workloads → Pods.
+Confirm that all pods are in a Running or Completed state.
+    8. Sync the Azure Pipleline with the restored environment.
+
+Fallback Plan (If Restore Fails)
+
+        1. Troubleshoot
+If the restore job fails, delete the failed job, check the logs for typos or timeouts, and run it again.
+        2. Direct PVC Restore
+If the standard restore operator encounters issues, the platform can be recovered directly from the disk by modifying the Restore YAML to use backup_source: PVC. (not CR)
+        3.  Infrastructure Rollback:
+As the environment is managed through Azure Pipelines (IaC), a fresh baseline environment
+ 	can be redeployed and the existing data(PVCs/snapshot) can be reattached as required. 
