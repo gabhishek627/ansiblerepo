@@ -1,0 +1,10 @@
+---
+- name: Create insert file record
+  template:
+    src: ../templates/insert.js.j2
+    dest: /tmp/insert.js
+
+- name: Fetch to Ansible Tower
+  fetch:
+    src: /tmp/insert.js
+    dest: /tmp/mongodb
